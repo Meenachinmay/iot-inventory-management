@@ -1,4 +1,3 @@
-// internal/service/websocket_hub.go
 package service
 
 import (
@@ -78,7 +77,6 @@ func (c *WebSocketClient) ReadPump() {
 			}
 			break
 		}
-		// We're not processing incoming messages from clients in this implementation
 	}
 }
 

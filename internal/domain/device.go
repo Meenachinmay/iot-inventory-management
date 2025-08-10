@@ -6,18 +6,19 @@ import (
 )
 
 type Device struct {
-	ID          uuid.UUID `json:"id"`
-	DeviceID    string    `json:"device_id"`
-	ClientID    uuid.UUID `json:"client_id"`
-	Location    string    `json:"location"`
-	MaxCapacity float64   `json:"max_capacity"`
-	ItemWeight  float64   `json:"item_weight"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID                 uuid.UUID `json:"id"`
+	ClientID           uuid.UUID `json:"client_id"`
+	CurrentItemCount   int       `json:"current_item_count"`
+	ItemWeight         float64   `json:"item_weight"`
+	MaxCapacity        float64   `json:"max_capacity"`
+	TotalItemSoldCount int       `json:"total_item_sold_count"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
 }
 
 type DeviceMessage struct {
-	DeviceID  string    `json:"device_id"`
-	Weight    float64   `json:"weight"`
-	Timestamp time.Time `json:"timestamp"`
+	DeviceID         string    `json:"device_id"`
+	CurrentTotalItem float64   `json:"current_total_item"`
+	ItemWeight       float64   `json:"item_weight"`
+	Timestamp        time.Time `json:"timestamp"`
 }

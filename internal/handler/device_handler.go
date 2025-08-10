@@ -1,12 +1,15 @@
 package handler
 
 import (
+	"errors"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"net/http"
 	"smat/iot/simulation/iot-inventory-management/internal/service"
 	"smat/iot/simulation/iot-inventory-management/pkg/utils"
 )
+
+var ErrDeviceNotFound = errors.New("device not found")
 
 type DeviceHandler struct {
 	deviceService service.DeviceService
@@ -29,14 +32,19 @@ func (h *DeviceHandler) GetAllDevices(c *gin.Context) {
 func (h *DeviceHandler) GetDevice(c *gin.Context) {
 	deviceID := c.Param("deviceId")
 
-	device, err := h.deviceService.GetDevice(c.Request.Context(), deviceID)
+	parsedDeviceID, err := uuid.Parse(deviceID)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to fetch device")
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid device ID format")
 		return
 	}
 
-	if device == nil {
-		utils.ErrorResponse(c, http.StatusNotFound, "Device not found")
+	device, err := h.deviceService.GetDevice(c.Request.Context(), parsedDeviceID)
+	if err != nil {
+		if errors.Is(err, ErrDeviceNotFound) {
+			utils.ErrorResponse(c, http.StatusNotFound, "Device not found")
+			return
+		}
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to fetch device")
 		return
 	}
 

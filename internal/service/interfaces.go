@@ -9,22 +9,19 @@ import (
 
 type DeviceService interface {
 	RegisterDevice(ctx context.Context, device *domain.Device) error
-	GetDevice(ctx context.Context, deviceID string) (*domain.Device, error)
+	GetDevice(ctx context.Context, deviceID uuid.UUID) (*domain.Device, error)
 	GetDevicesByClient(ctx context.Context, clientID uuid.UUID) ([]*domain.Device, error)
 	GetAllDevices(ctx context.Context) ([]*domain.Device, error)
 	InitializeDevices(ctx context.Context) error
-}
-
-type InventoryService interface {
-	ProcessWeightUpdate(ctx context.Context, update *domain.DeviceMessage) error
-	GetLatestReading(ctx context.Context, deviceID uuid.UUID) (*domain.InventoryReading, error)
-	GetDeviceHistory(ctx context.Context, deviceID uuid.UUID, limit int) ([]*domain.InventoryReading, error)
 }
 
 type MQTTService interface {
 	Connect() error
 	Subscribe(topic string) error
 	Disconnect()
+	Publish(topic string, payload []byte) error
+	PublishDeviceMessage(message *domain.DeviceMessage) error
+	IsConnected() bool
 }
 
 type RabbitMQService interface {

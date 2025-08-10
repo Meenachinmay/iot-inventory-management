@@ -27,6 +27,43 @@ func NewMQTTService(cfg *config.Config, rabbitMQ RabbitMQService) MQTTService {
 	}
 }
 
+func (s *mqttService) Publish(topic string, payload []byte) error {
+	if !s.IsConnected() {
+		return fmt.Errorf("not connected to MQTT broker")
+	}
+
+	// publish to mqtt
+	token := s.client.Publish(topic, 1, false, payload)
+	if token.Wait() && token.Error() != nil {
+		return fmt.Errorf("failed to publish to topic %s: %w", topic, token.Error())
+	}
+	log.Printf("Successfully published to topic %s", topic) // now check the rabbitmq queue
+
+	if err := s.rabbitMQ.PublishMessage(payload); err != nil {
+		log.Printf("Failed to publish to RabbitMQ: %v", err)
+		return err
+	} else {
+		log.Printf("Successfully forwarded message to RabbitMQ for topic: %s", topic)
+	}
+
+	return nil
+}
+
+func (s *mqttService) PublishDeviceMessage(message *domain.DeviceMessage) error {
+
+	if message.Timestamp.IsZero() {
+		message.Timestamp = time.Now()
+	}
+
+	payload, err := json.Marshal(message)
+	if err != nil {
+		return fmt.Errorf("failed to marshal message: %w", err)
+	}
+
+	topic := fmt.Sprintf("devices/%s/weight", message.DeviceID)
+	return s.Publish(topic, payload)
+}
+
 func (s *mqttService) Connect() error {
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(s.config.MQTTBroker)
@@ -84,10 +121,16 @@ func (s *mqttService) createTLSConfig() (*tls.Config, error) {
 }
 
 func (s *mqttService) Subscribe(topic string) error {
+
+	if !s.IsConnected() {
+		return fmt.Errorf("not connected to MQTT broker")
+	}
+
 	if token := s.client.Subscribe(topic, 1, nil); token.Wait() && token.Error() != nil {
 		return fmt.Errorf("failed to subscribe to topic %s: %w", topic, token.Error())
 	}
 	log.Printf("Successfully subscribed to topic: %s", topic)
+
 	return nil
 }
 
