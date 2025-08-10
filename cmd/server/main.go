@@ -32,15 +32,8 @@ func main() {
 	}
 	defer db.Close()
 
-	//if os.Getenv("CLEAN_DB") == "true" {
-	//	log.Println("CLEAN_DB=true detected, cleaning database...")
-	//	if err := database.CleanDatabase(db); err != nil {
-	//		log.Fatal("Failed to clean database:", err)
-	//	}
-	//}
-
-	if err := database.InitializeDatabase(db); err != nil {
-		log.Fatal("Failed to initialize database:", err)
+	if err = database.RunMigrations(db, "./migrations"); err != nil {
+		log.Fatal("Failed to run migrations:", err)
 	}
 
 	log.Println("Database initialized successfully")
@@ -52,7 +45,6 @@ func main() {
 	defer redisClient.Close()
 
 	deviceRepo := repository.NewDeviceRepository(db)
-	inventoryRepo := repository.NewInventoryRepository(db, redisClient)
 
 	wsHub := service.NewWebSocketHub()
 	go wsHub.Run()
@@ -80,9 +72,9 @@ func main() {
 	defer rabbitMQ.Close()
 
 	deviceService := service.NewDeviceService(deviceRepo)
-	inventoryService := service.NewInventoryService(deviceRepo, inventoryRepo, rabbitMQ, wsHub)
-
 	mqttService := service.NewMQTTService(cfg, rabbitMQ)
+	simulationService := service.NewSimulationService(deviceRepo)
+
 	if err := mqttService.Connect(); err != nil {
 		log.Fatal("Failed to connect to MQTT:", err)
 	}
@@ -100,7 +92,7 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		consumeRabbitMQMessages(ctx, rabbitMQ, inventoryService)
+		consumeRabbitMQMessages(ctx, rabbitMQ, wsHub)
 	}()
 
 	ctx = context.Background()
@@ -109,11 +101,11 @@ func main() {
 	}
 
 	deviceHandler := handler.NewDeviceHandler(deviceService)
-	inventoryHandler := handler.NewInventoryHandler(inventoryService)
 	wsHandler := handler.NewWebSocketHandler(wsHub)
 	healthHandler := handler.NewHealthHandler(rabbitMQ)
+	simulationHandler := handler.NewSimulationHandler(mqttService, deviceService, simulationService)
 
-	r := router.SetupRouter(deviceHandler, inventoryHandler, wsHandler, healthHandler)
+	r := router.SetupRouter(deviceHandler, wsHandler, healthHandler, simulationHandler)
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%s", cfg.ServerPort),
@@ -144,10 +136,8 @@ func main() {
 		log.Fatal("Server forced to shutdown:", err)
 	}
 
-	// Cancel background operations
 	cancel()
 
-	// Wait for goroutines with timeout
 	done := make(chan struct{})
 	go func() {
 		wg.Wait()
@@ -164,7 +154,7 @@ func main() {
 	log.Println("Server shutdown complete")
 }
 
-func consumeRabbitMQMessages(ctx context.Context, rabbitMQ service.RabbitMQService, inventoryService service.InventoryService) {
+func consumeRabbitMQMessages(ctx context.Context, rabbitMQ service.RabbitMQService, wsHub *service.WebSocketHub) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -175,7 +165,6 @@ func consumeRabbitMQMessages(ctx context.Context, rabbitMQ service.RabbitMQServi
 			if err != nil {
 				log.Printf("Failed to start consuming messages: %v", err)
 
-				// Check health and retry
 				if healthErr := rabbitMQ.HealthCheck(); healthErr != nil {
 					log.Printf("RabbitMQ unhealthy: %v, retrying in 5 seconds", healthErr)
 					time.Sleep(5 * time.Second)
@@ -185,7 +174,6 @@ func consumeRabbitMQMessages(ctx context.Context, rabbitMQ service.RabbitMQServi
 
 			log.Println("Started consuming messages from RabbitMQ")
 
-			// Process messages
 			for {
 				select {
 				case <-ctx.Done():
@@ -193,7 +181,7 @@ func consumeRabbitMQMessages(ctx context.Context, rabbitMQ service.RabbitMQServi
 				case msg, ok := <-messages:
 					if !ok {
 						log.Println("Message channel closed, reconnecting...")
-						break // Break inner loop to reconnect
+						break
 					}
 
 					var deviceMsg domain.DeviceMessage
@@ -202,12 +190,10 @@ func consumeRabbitMQMessages(ctx context.Context, rabbitMQ service.RabbitMQServi
 						continue
 					}
 
-					// Process with timeout
-					processCtx, processCancel := context.WithTimeout(ctx, 30*time.Second)
-					if err := inventoryService.ProcessWeightUpdate(processCtx, &deviceMsg); err != nil {
-						log.Printf("Failed to process weight update: %v", err)
-					}
-					processCancel()
+					// Broadcast to websocket client
+					log.Printf("Broadcasting message to websocket clients: %v", deviceMsg)
+					log.Println("message: ", string(msg))
+					wsHub.Broadcast(msg)
 				}
 			}
 		}

@@ -18,30 +18,28 @@ func NewDeviceRepository(db *sql.DB) DeviceRepository {
 
 func (r *deviceRepository) Create(ctx context.Context, device *domain.Device) error {
 	query := `
-        INSERT INTO devices (device_id, client_id, location, max_capacity, item_weight)
-        VALUES ($1, $2, $3, $4, $5)
+        INSERT INTO devices (client_id, item_weight)
+        VALUES ($1, $2)
         RETURNING id, created_at, updated_at`
 
 	err := r.db.QueryRowContext(ctx, query,
-		device.DeviceID, device.ClientID, device.Location,
-		device.MaxCapacity, device.ItemWeight,
-	).Scan(&device.ID, &device.CreatedAt, &device.UpdatedAt)
+		device.ClientID, device.ItemWeight).Scan(&device.ID, &device.CreatedAt, &device.UpdatedAt)
 
 	return err
 }
 
-func (r *deviceRepository) GetByDeviceID(ctx context.Context, deviceID string) (*domain.Device, error) {
+func (r *deviceRepository) GetByDeviceID(ctx context.Context, id uuid.UUID) (*domain.Device, error) {
 	device := &domain.Device{}
 	query := `
-        SELECT id, device_id, client_id, location, max_capacity, item_weight, created_at, updated_at
-        FROM devices WHERE device_id = $1`
+        SELECT id, client_id, current_item_count, max_capacity, total_item_sold_count, item_weight, created_at, updated_at
+        FROM devices WHERE id = $1`
 
-	err := r.db.QueryRowContext(ctx, query, deviceID).Scan(
-		&device.ID, &device.DeviceID, &device.ClientID, &device.Location,
-		&device.MaxCapacity, &device.ItemWeight, &device.CreatedAt, &device.UpdatedAt,
+	err := r.db.QueryRowContext(ctx, query, id).Scan(
+		&device.ID, &device.ClientID, &device.CurrentItemCount,
+		&device.MaxCapacity, &device.TotalItemSoldCount, &device.ItemWeight, &device.CreatedAt, &device.UpdatedAt,
 	)
 
-	if errors.Is(sql.ErrNoRows, err) {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	return device, err
@@ -49,7 +47,7 @@ func (r *deviceRepository) GetByDeviceID(ctx context.Context, deviceID string) (
 
 func (r *deviceRepository) GetByClientID(ctx context.Context, clientID uuid.UUID) ([]*domain.Device, error) {
 	query := `
-        SELECT id, device_id, client_id, location, max_capacity, item_weight, created_at, updated_at
+        SELECT id, client_id, current_item_count, max_capacity, total_item_sold_count, item_weight, created_at, updated_at
         FROM devices WHERE client_id = $1`
 
 	rows, err := r.db.QueryContext(ctx, query, clientID)
@@ -62,8 +60,8 @@ func (r *deviceRepository) GetByClientID(ctx context.Context, clientID uuid.UUID
 	for rows.Next() {
 		device := &domain.Device{}
 		err := rows.Scan(
-			&device.ID, &device.DeviceID, &device.ClientID, &device.Location,
-			&device.MaxCapacity, &device.ItemWeight, &device.CreatedAt, &device.UpdatedAt,
+			&device.ID, &device.ClientID, &device.CurrentItemCount,
+			&device.MaxCapacity, &device.TotalItemSoldCount, &device.ItemWeight, &device.CreatedAt, &device.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
@@ -76,7 +74,7 @@ func (r *deviceRepository) GetByClientID(ctx context.Context, clientID uuid.UUID
 
 func (r *deviceRepository) GetAll(ctx context.Context) ([]*domain.Device, error) {
 	query := `
-        SELECT id, device_id, client_id, location, max_capacity, item_weight, created_at, updated_at
+        SELECT id, client_id, current_item_count, max_capacity, total_item_sold_count, item_weight, created_at, updated_at
         FROM devices ORDER BY created_at DESC`
 
 	rows, err := r.db.QueryContext(ctx, query)
@@ -89,8 +87,8 @@ func (r *deviceRepository) GetAll(ctx context.Context) ([]*domain.Device, error)
 	for rows.Next() {
 		device := &domain.Device{}
 		err := rows.Scan(
-			&device.ID, &device.DeviceID, &device.ClientID, &device.Location,
-			&device.MaxCapacity, &device.ItemWeight, &device.CreatedAt, &device.UpdatedAt,
+			&device.ID, &device.ClientID, &device.CurrentItemCount,
+			&device.MaxCapacity, &device.TotalItemSoldCount, &device.ItemWeight, &device.CreatedAt, &device.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
@@ -104,11 +102,11 @@ func (r *deviceRepository) GetAll(ctx context.Context) ([]*domain.Device, error)
 func (r *deviceRepository) Update(ctx context.Context, device *domain.Device) error {
 	query := `
         UPDATE devices 
-        SET location = $1, max_capacity = $2, item_weight = $3, updated_at = CURRENT_TIMESTAMP
-        WHERE id = $4`
+        SET current_item_count = $1, max_capacity = $2, total_item_sold_count = $3, item_weight = $4, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $5`
 
 	_, err := r.db.ExecContext(ctx, query,
-		device.Location, device.MaxCapacity, device.ItemWeight, device.ID,
+		device.CurrentItemCount, device.MaxCapacity, device.TotalItemSoldCount, device.ItemWeight, device.ID,
 	)
 	return err
 }

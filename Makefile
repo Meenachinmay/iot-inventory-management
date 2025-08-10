@@ -23,25 +23,11 @@ build:
 run:
 	go run cmd/api/main.go
 
-run-sim:
-	go run cmd/simulator/main.go
-
-test:
-	go test -v ./...
-
-clean:
-	rm -rf bin/
-
 # Docker commands - Keep it simple!
-docker-up:
-	docker compose -f docker-local.compose.yml up -d
-	@echo "All services starting..."
-	@echo "Run 'make docker-logs' to view logs"
-
-run-rabbit:
+rr:
 	docker compose -f docker-local.compose.yml up -d rabbitmq
 
-docker-run:
+dr:
 	docker compose -f docker-local.compose.yml up --build
 
 docker-down:
@@ -68,7 +54,7 @@ docker-health:
 migrate:
 	@echo "Running migrations..."
 	@sleep 2  # Give postgres a moment if just started
-	docker exec -i iot-inventory-management-db-local psql -U postgres -d iot_inventory_local < migrations/001_initial_schema.sql
+	docker exec -i iot-inventory-management-db-local psql -U postgres -d iot_inventory_local < migrations/init.sql
 	@echo "Migrations completed"
 
 # Development mode - run dependencies in Docker, app locally
