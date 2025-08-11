@@ -1,0 +1,178 @@
+{{define "dashboard"}}
+    {{template "base" .}}
+{{end}}
+
+{{define "content"}}
+    <div class="min-h-screen bg-gray-50" x-data="dashboardApp()">
+        <!-- Header -->
+        <header class="bg-white border-b border-gray-200">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center h-16">
+                    <div class="flex items-center">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h1 class="text-xl font-semibold text-gray-900">IoT Inventory Dashboard</h1>
+                                <p class="text-sm text-gray-500">Client ID: {{.ClientID}}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center space-x-4">
+                        <!-- WebSocket Status Indicator -->
+                        <div class="flex items-center space-x-2">
+                            <div id="ws-status" class="w-2 h-2 rounded-full bg-gray-400"></div>
+                            <span class="text-sm text-gray-600">
+                            <span id="ws-status-text">Connecting...</span>
+                        </span>
+                        </div>
+
+                        <!-- Logout Button -->
+                        <a href="/ui/logout"
+                           class="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                            Logout
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- Stats Summary -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Total Devices</p>
+                            <p class="text-2xl font-bold text-gray-900">{{.DeviceCount}}</p>
+                        </div>
+                        <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Active Devices</p>
+                            <p class="text-2xl font-bold text-gray-900" id="active-devices">{{.DeviceCount}}</p>
+                        </div>
+                        <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                            <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Total Items Sold</p>
+                            <p class="text-2xl font-bold text-gray-900" id="total-sold">{{.TotalSold}}</p>
+                        </div>
+                        <div class="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                            <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Devices Grid -->
+            <div class="mb-4">
+                <h2 class="text-lg font-semibold text-gray-900">Devices</h2>
+                <p class="text-sm text-gray-600">Real-time monitoring of all connected devices</p>
+            </div>
+
+            <div id="devices-grid"
+                 class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                 hx-get="/ui/devices/{{.ClientID}}"
+                 hx-trigger="load"
+                 hx-swap="innerHTML">
+                <!-- Loading State -->
+                <div class="col-span-full flex justify-center py-12">
+                    <div class="flex flex-col items-center justify-center space-y-4">
+                        <div class="relative">
+                            <div class="w-12 h-12 rounded-full border-4 border-gray-200"></div>
+                            <div class="absolute top-0 left-0 w-12 h-12 rounded-full border-4 border-blue-600 border-t-transparent animate-spin"></div>
+                        </div>
+                        <p class="text-sm text-gray-600">Loading devices...</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Device Modal Container -->
+        <div id="device-modal" class="hidden"></div>
+    </div>
+
+    <script>
+        function dashboardApp() {
+            return {
+                ws: null,
+
+                init() {
+                    this.initWebSocket();
+                },
+
+                initWebSocket() {
+                    const clientId = '{{.ClientID}}';
+                    const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws?client_id=${clientId}`;
+
+                    this.ws = new WebSocket(wsUrl);
+
+                    this.ws.onopen = () => {
+                        document.getElementById('ws-status').classList.remove('bg-gray-400', 'bg-red-500');
+                        document.getElementById('ws-status').classList.add('bg-green-500');
+                        document.getElementById('ws-status-text').textContent = 'Connected';
+                    };
+
+                    this.ws.onclose = () => {
+                        document.getElementById('ws-status').classList.remove('bg-green-500');
+                        document.getElementById('ws-status').classList.add('bg-red-500');
+                        document.getElementById('ws-status-text').textContent = 'Disconnected';
+                        setTimeout(() => this.initWebSocket(), 3000);
+                    };
+
+                    this.ws.onerror = () => {
+                        document.getElementById('ws-status').classList.remove('bg-green-500');
+                        document.getElementById('ws-status').classList.add('bg-red-500');
+                        document.getElementById('ws-status-text').textContent = 'Error';
+                    };
+
+                    this.ws.onmessage = (event) => {
+                        const data = JSON.parse(event.data);
+                        this.updateDevice(data);
+                    };
+                },
+
+                updateDevice(data) {
+                    const deviceCard = document.querySelector(`[data-device-id="${data.device_id}"]`);
+                    if (deviceCard) {
+                        const weightEl = deviceCard.querySelector('.device-weight');
+                        if (weightEl) weightEl.textContent = `${data.current_weight.toFixed(2)} kg`;
+
+                        const itemEl = deviceCard.querySelector('.device-items');
+                        if (itemEl) itemEl.textContent = Math.floor(data.current_total_item);
+
+                        deviceCard.classList.add('ring-2', 'ring-blue-400', 'ring-opacity-75');
+                        setTimeout(() => {
+                            deviceCard.classList.remove('ring-2', 'ring-blue-400', 'ring-opacity-75');
+                        }, 1000);
+                    }
+                }
+            }
+        }
+    </script>
+{{end}}

@@ -26,6 +26,9 @@ COPY .env ./.env
 COPY internal/config/certs ./internal/config/certs
 COPY migrations ./migrations
 
+# Copy web directory for UI templates and static files
+COPY web ./web
+
 EXPOSE 8080
 
 ENV APP_ENVIRONMENT=local

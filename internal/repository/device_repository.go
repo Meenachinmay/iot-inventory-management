@@ -47,7 +47,7 @@ func (r *deviceRepository) GetByDeviceID(ctx context.Context, id uuid.UUID) (*do
 
 func (r *deviceRepository) GetByClientID(ctx context.Context, clientID uuid.UUID) ([]*domain.Device, error) {
 	query := `
-        SELECT id, client_id, current_item_count, max_capacity, total_item_sold_count, item_weight, created_at, updated_at
+        SELECT id, client_id, current_item_count, max_capacity, total_item_sold_count, item_weight, current_weight, created_at, updated_at
         FROM devices WHERE client_id = $1`
 
 	rows, err := r.db.QueryContext(ctx, query, clientID)
@@ -61,7 +61,7 @@ func (r *deviceRepository) GetByClientID(ctx context.Context, clientID uuid.UUID
 		device := &domain.Device{}
 		err := rows.Scan(
 			&device.ID, &device.ClientID, &device.CurrentItemCount,
-			&device.MaxCapacity, &device.TotalItemSoldCount, &device.ItemWeight, &device.CreatedAt, &device.UpdatedAt,
+			&device.MaxCapacity, &device.TotalItemSoldCount, &device.ItemWeight, &device.CurrentWeight, &device.CreatedAt, &device.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
@@ -74,7 +74,7 @@ func (r *deviceRepository) GetByClientID(ctx context.Context, clientID uuid.UUID
 
 func (r *deviceRepository) GetAll(ctx context.Context) ([]*domain.Device, error) {
 	query := `
-        SELECT id, client_id, current_item_count, max_capacity, total_item_sold_count, item_weight, created_at, updated_at
+        SELECT id, client_id, current_item_count, max_capacity, total_item_sold_count, item_weight, current_weight, created_at, updated_at
         FROM devices ORDER BY created_at DESC`
 
 	rows, err := r.db.QueryContext(ctx, query)
@@ -88,7 +88,7 @@ func (r *deviceRepository) GetAll(ctx context.Context) ([]*domain.Device, error)
 		device := &domain.Device{}
 		err := rows.Scan(
 			&device.ID, &device.ClientID, &device.CurrentItemCount,
-			&device.MaxCapacity, &device.TotalItemSoldCount, &device.ItemWeight, &device.CreatedAt, &device.UpdatedAt,
+			&device.MaxCapacity, &device.TotalItemSoldCount, &device.ItemWeight, &device.CurrentWeight, &device.CreatedAt, &device.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
