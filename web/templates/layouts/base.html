@@ -1,0 +1,58 @@
+{{define "base"}}
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{{.Title}} - IoT Inventory Management</title>
+
+        <!-- Tailwind CSS -->
+        <script src="https://cdn.tailwindcss.com"></script>
+
+        <!-- HTMX -->
+        <script src="https://unpkg.com/htmx.org@2.0.3"></script>
+
+        <!-- HTMX WebSocket Extension -->
+        <script src="https://unpkg.com/htmx-ext-ws@2.0.1/ws.js"></script>
+
+        <!-- Alpine.js -->
+        <script defer src="https://unpkg.com/alpinejs@3.14.1/dist/cdn.min.js"></script>
+
+        <!-- Custom Tailwind Config -->
+        <script>
+            tailwind.config = {
+                theme: {
+                    extend: {
+                        colors: {
+                            primary: {
+                                50: '#eff6ff',
+                                100: '#dbeafe',
+                                200: '#bfdbfe',
+                                300: '#93c5fd',
+                                400: '#60a5fa',
+                                500: '#3b82f6',
+                                600: '#2563eb',
+                                700: '#1d4ed8',
+                                800: '#1e40af',
+                                900: '#1e3a8a',
+                            }
+                        },
+                        animation: {
+                            'spin-slow': 'spin 2s linear infinite',
+                        }
+                    }
+                }
+            }
+        </script>
+
+        <!-- Custom Styles -->
+        <link rel="stylesheet" href="/static/css/styles.css">
+    </head>
+    <body class="bg-gray-50 text-gray-900">
+    {{template "content" .}}
+
+    <!-- Custom Scripts -->
+    <script src="/static/js/app.js"></script>
+    </body>
+    </html>
+{{end}}

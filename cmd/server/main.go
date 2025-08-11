@@ -104,8 +104,9 @@ func main() {
 	wsHandler := handler.NewWebSocketHandler(wsHub)
 	healthHandler := handler.NewHealthHandler(rabbitMQ)
 	simulationHandler := handler.NewSimulationHandler(mqttService, deviceService, simulationService)
+	uiHandler := handler.NewUIHandler(deviceService)
 
-	r := router.SetupRouter(deviceHandler, wsHandler, healthHandler, simulationHandler)
+	r := router.SetupRouter(deviceHandler, wsHandler, healthHandler, simulationHandler, uiHandler)
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%s", cfg.ServerPort),

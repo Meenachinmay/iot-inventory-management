@@ -1,0 +1,11 @@
+### Test Login with Valid UUID
+POST http://localhost:8080/ui/login
+Content-Type: application/x-www-form-urlencoded
+
+client_id=550e8400-e29b-41d4-a716-446655440000
+
+### Test Dashboard Access (should work if cookie is set)
+GET http://localhost:8080/ui/dashboard
+
+### Test Logout
+GET http://localhost:8080/ui/logout
