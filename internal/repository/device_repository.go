@@ -102,11 +102,11 @@ func (r *deviceRepository) GetAll(ctx context.Context) ([]*domain.Device, error)
 func (r *deviceRepository) Update(ctx context.Context, device *domain.Device) error {
 	query := `
         UPDATE devices 
-        SET current_item_count = $1, max_capacity = $2, total_item_sold_count = $3, item_weight = $4, updated_at = CURRENT_TIMESTAMP
-        WHERE id = $5`
+        SET current_item_count = $1, max_capacity = $2, total_item_sold_count = $3, item_weight = $4, current_weight = $5, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $6`
 
 	_, err := r.db.ExecContext(ctx, query,
-		device.CurrentItemCount, device.MaxCapacity, device.TotalItemSoldCount, device.ItemWeight, device.ID,
+		device.CurrentItemCount, device.MaxCapacity, device.TotalItemSoldCount, device.ItemWeight, device.CurrentWeight, device.ID,
 	)
 	return err
 }

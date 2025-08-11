@@ -48,9 +48,26 @@ func (s *simulationService) SimulateSale(ctx context.Context, deviceID string, i
 		return nil, errors.New("insufficient stock for requested sale")
 	}
 
-	device.CurrentItemCount = device.CurrentItemCount - int(itemsSold)
+	newItemCount := device.CurrentItemCount - int(itemsSold)
+	newWeight := float64(newItemCount) * device.ItemWeight
+
+	if newWeight > device.MaxCapacity {
+		log.Printf("SimulateSale: WARNING - New weight %.2f exceeds max capacity %.2f",
+			newWeight, device.MaxCapacity)
+		return nil, errors.New("weight exceeds maximum capacity")
+	}
+
+	device.CurrentItemCount = newItemCount
+	device.CurrentWeight = newWeight
 	device.TotalItemSoldCount = device.TotalItemSoldCount + int(itemsSold)
 	device.UpdatedAt = time.Now()
+
+	log.Printf("SimulateSale: Updating device %s - Items: %d -> %d, Weight: %.2f -> %.2f",
+		deviceUUID.String(),
+		device.CurrentItemCount+int(itemsSold),
+		device.CurrentItemCount,
+		device.CurrentWeight+(itemsSold*device.ItemWeight),
+		device.CurrentWeight)
 
 	err = s.deviceRepo.Update(ctx, device)
 	if err != nil {
@@ -61,6 +78,7 @@ func (s *simulationService) SimulateSale(ctx context.Context, deviceID string, i
 	message := &domain.DeviceMessage{
 		DeviceID:         deviceUUID.String(),
 		CurrentTotalItem: float64(device.CurrentItemCount),
+		CurrentWeight:    device.CurrentWeight, // Include current weight in response
 		ItemWeight:       device.ItemWeight,
 		Timestamp:        time.Now(),
 	}
