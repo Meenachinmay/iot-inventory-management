@@ -1,9 +1,13 @@
+GET http://localhost:8080/health
+Accept: application/json
+
+###
 ### Test simulate sale for a device
 POST http://localhost:8080/server/v1/simulation/device/183b1ae3-08d4-45e2-a7b1-be3410898943/sale
 Content-Type: application/json
 
 {
-  "items_sold": 5
+  "items_sold": 10
 }
 
 ### Response should be:
@@ -14,3 +18,4 @@ Content-Type: application/json
 #     // message data
 #   }
 # }
+
