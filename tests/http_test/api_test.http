@@ -7,7 +7,7 @@ POST http://localhost:8080/server/v1/simulation/device/183b1ae3-08d4-45e2-a7b1-b
 Content-Type: application/json
 
 {
-  "items_sold": 10
+  "items_sold": 1
 }
 
 ### Response should be:

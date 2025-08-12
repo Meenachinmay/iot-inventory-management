@@ -1,8 +1,24 @@
 {{define "dashboard"}}
-    {{template "base" .}}
-{{end}}
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Dashboard - IoT Inventory Management</title>
 
-{{define "content"}}
+        <!-- Tailwind CSS -->
+        <script src="https://cdn.tailwindcss.com"></script>
+
+        <!-- HTMX -->
+        <script src="https://unpkg.com/htmx.org@2.0.3"></script>
+
+        <!-- Alpine.js -->
+        <script defer src="https://unpkg.com/alpinejs@3.14.1/dist/cdn.min.js"></script>
+
+        <!-- Custom Styles -->
+        <link rel="stylesheet" href="/static/css/styles.css">
+    </head>
+    <body class="bg-gray-50 text-gray-900">
     <div class="min-h-screen bg-gray-50" x-data="dashboardApp()">
         <!-- Header -->
         <header class="bg-white border-b border-gray-200">
@@ -175,4 +191,9 @@
             }
         }
     </script>
+
+    <!-- Custom Scripts -->
+    <script src="/static/js/app.js"></script>
+    </body>
+    </html>
 {{end}}
