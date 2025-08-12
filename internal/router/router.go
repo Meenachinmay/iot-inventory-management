@@ -29,11 +29,13 @@ func SetupRouter(
 		ui.GET("/devices/:clientId", uiHandler.GetDevices)
 		ui.GET("/device/:deviceId", uiHandler.GetDeviceModal)
 		ui.GET("/logout", uiHandler.Logout)
+		ui.GET("/hello-world", uiHandler.HelloWorldPage)
+		ui.GET("/go-to-hello-world", uiHandler.GoToHelloWorldPage)
 	}
 
-	// Redirect root to login
+	// Redirect root to dashboard instead of login
 	router.GET("/", func(c *gin.Context) {
-		c.Redirect(301, "/ui/login")
+		c.Redirect(301, "/ui/dashboard")
 	})
 
 	api := router.Group("/server/v1")

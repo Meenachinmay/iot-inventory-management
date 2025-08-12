@@ -6,6 +6,8 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"smat/iot/simulation/iot-inventory-management/internal/domain"
 
 	"github.com/gin-gonic/gin"
@@ -33,19 +35,77 @@ func NewUIHandler(deviceService service.DeviceService) *UIHandler {
 		"printf": fmt.Sprintf,
 	}
 
-	// Parse all templates
-	templates, err := template.New("").Funcs(funcMap).ParseGlob("web/templates/**/*.html")
-	if err != nil {
-		log.Printf("Error parsing templates: %v", err)
+	// Initialize templates
+	templates := template.New("").Funcs(funcMap)
+
+	// Try to find the template directory
+	templateDir := "web/templates"
+
+	// Check if we're running from a different directory
+	if _, err := os.Stat(templateDir); os.IsNotExist(err) {
 		// Try alternative paths
-		templates, err = template.New("").Funcs(funcMap).ParseGlob("web/templates/*/*.html")
-		if err != nil {
-			log.Fatalf("Failed to parse templates: %v", err)
+		possiblePaths := []string{
+			"./web/templates",
+			"../web/templates",
+			"/src/web/templates", // Docker path
+		}
+
+		for _, path := range possiblePaths {
+			if _, err := os.Stat(path); err == nil {
+				templateDir = path
+				break
+			}
 		}
 	}
 
+	log.Printf("Using template directory: %s", templateDir)
+
+	// Parse all template files
+	templateFiles := []string{}
+
+	// Walk through the template directory and collect all .html files
+	err := filepath.Walk(templateDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() && filepath.Ext(path) == ".html" {
+			templateFiles = append(templateFiles, path)
+			log.Printf("Found template file: %s", path)
+		}
+		return nil
+	})
+
+	if err != nil {
+		log.Printf("Error walking template directory: %v", err)
+		// Try using glob patterns as fallback
+		patterns := []string{
+			filepath.Join(templateDir, "pages", "*.html"),
+			filepath.Join(templateDir, "components", "*.html"),
+			filepath.Join(templateDir, "layouts", "*.html"),
+		}
+
+		for _, pattern := range patterns {
+			files, err := filepath.Glob(pattern)
+			if err != nil {
+				log.Printf("Error with glob pattern %s: %v", pattern, err)
+				continue
+			}
+			templateFiles = append(templateFiles, files...)
+		}
+	}
+
+	// Parse the collected template files
+	if len(templateFiles) > 0 {
+		templates, err = templates.ParseFiles(templateFiles...)
+		if err != nil {
+			log.Fatalf("Failed to parse template files: %v", err)
+		}
+	} else {
+		log.Fatal("No template files found!")
+	}
+
 	// Log loaded templates for debugging
-	log.Println("Loaded templates:")
+	log.Println("Successfully loaded templates:")
 	for _, tmpl := range templates.Templates() {
 		log.Printf("  - %s", tmpl.Name())
 	}
@@ -57,12 +117,29 @@ func NewUIHandler(deviceService service.DeviceService) *UIHandler {
 }
 
 func (h *UIHandler) LoginPage(c *gin.Context) {
+	// Check if templates are loaded
+	if h.templates == nil {
+		log.Printf("Templates not loaded!")
+		c.String(http.StatusInternalServerError, "Templates not loaded")
+		return
+	}
+
+	// Check if user already has a valid client_id cookie
+	clientID, err := c.Cookie("client_id")
+	if err == nil && clientID != "" {
+		// If client_id exists, redirect to dashboard
+		if _, err := uuid.Parse(clientID); err == nil {
+			c.Redirect(http.StatusFound, "/ui/dashboard")
+			return
+		}
+	}
+
 	data := gin.H{
 		"Title": "Login",
 	}
 
 	var buf bytes.Buffer
-	err := h.templates.ExecuteTemplate(&buf, "login", data)
+	err = h.templates.ExecuteTemplate(&buf, "login", data)
 	if err != nil {
 		log.Printf("Error rendering login template: %v", err)
 		c.String(http.StatusInternalServerError, "Error rendering template: %v", err)
@@ -107,7 +184,7 @@ func (h *UIHandler) HandleLogin(c *gin.Context) {
 		return
 	}
 
-	// Check if client exists
+	// Check if client exists (optional validation)
 	clientUUID, _ := uuid.Parse(clientID)
 	devices, err := h.deviceService.GetDevicesByClient(c.Request.Context(), clientUUID)
 	if err != nil {
@@ -118,33 +195,34 @@ func (h *UIHandler) HandleLogin(c *gin.Context) {
 		log.Printf("No devices found for client %s, but allowing login", clientID)
 	}
 
-	// Set session/cookie
-	cookie := &http.Cookie{
-		Name:     "client_id",
-		Value:    clientID,
-		MaxAge:   3600,
-		Path:     "/",
-		Domain:   "",
-		Secure:   false,
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-	}
-	http.SetCookie(c.Writer, cookie)
+	// Set session cookie
+	c.SetCookie("client_id", clientID, 3600, "/", "", false, true)
 
-	// For successful login, use HX-Redirect header
+	// Use HX-Redirect header for HTMX
 	c.Header("HX-Redirect", "/ui/dashboard")
 	c.Status(http.StatusOK)
 }
 
 func (h *UIHandler) Dashboard(c *gin.Context) {
+	// Check if templates are loaded
+	if h.templates == nil {
+		log.Printf("Templates not loaded!")
+		c.String(http.StatusInternalServerError, "Templates not loaded")
+		return
+	}
+
 	clientID, err := c.Cookie("client_id")
-	if err != nil {
+	var clientUUID uuid.UUID
+
+	if err != nil || clientID == "" {
+		// Redirect to login if no client_id
 		c.Redirect(http.StatusFound, "/ui/login")
 		return
 	}
 
-	clientUUID, err := uuid.Parse(clientID)
+	clientUUID, err = uuid.Parse(clientID)
 	if err != nil {
+		// Invalid UUID, redirect to login
 		c.Redirect(http.StatusFound, "/ui/login")
 		return
 	}
@@ -152,7 +230,7 @@ func (h *UIHandler) Dashboard(c *gin.Context) {
 	devices, err := h.deviceService.GetDevicesByClient(c.Request.Context(), clientUUID)
 	if err != nil {
 		log.Printf("Error fetching devices: %v", err)
-		devices = []*domain.Device{} // Empty array with correct type
+		devices = []*domain.Device{}
 	}
 
 	totalSold := 0
@@ -179,6 +257,11 @@ func (h *UIHandler) Dashboard(c *gin.Context) {
 }
 
 func (h *UIHandler) GetDevices(c *gin.Context) {
+	if h.templates == nil {
+		c.String(http.StatusInternalServerError, "Templates not loaded")
+		return
+	}
+
 	clientID := c.Param("clientId")
 
 	clientUUID, err := uuid.Parse(clientID)
@@ -220,6 +303,11 @@ func (h *UIHandler) GetDevices(c *gin.Context) {
 }
 
 func (h *UIHandler) GetDeviceModal(c *gin.Context) {
+	if h.templates == nil {
+		c.String(http.StatusInternalServerError, "Templates not loaded")
+		return
+	}
+
 	deviceID := c.Param("deviceId")
 
 	deviceUUID, err := uuid.Parse(deviceID)
@@ -247,17 +335,49 @@ func (h *UIHandler) GetDeviceModal(c *gin.Context) {
 }
 
 func (h *UIHandler) Logout(c *gin.Context) {
-	// Use http.Cookie for SameSite attribute consistency
-	cookie := &http.Cookie{
-		Name:     "client_id",
-		Value:    "",
-		MaxAge:   -1,
-		Path:     "/",
-		Domain:   "",
-		Secure:   false,
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-	}
-	http.SetCookie(c.Writer, cookie)
+	// Clear the cookie
+	c.SetCookie("client_id", "", -1, "/", "", false, true)
 	c.Redirect(http.StatusFound, "/ui/login")
+}
+
+func (h *UIHandler) HelloWorldPage(c *gin.Context) {
+	if h.templates == nil {
+		c.String(http.StatusInternalServerError, "Templates not loaded")
+		return
+	}
+
+	data := gin.H{
+		"Title": "Hello World",
+	}
+
+	var buf bytes.Buffer
+	err := h.templates.ExecuteTemplate(&buf, "hello_world", data)
+	if err != nil {
+		log.Printf("Error rendering hello_world template: %v", err)
+		c.String(http.StatusInternalServerError, "Error rendering template: %v", err)
+		return
+	}
+
+	c.Data(http.StatusOK, "text/html; charset=utf-8", buf.Bytes())
+}
+
+func (h *UIHandler) GoToHelloWorldPage(c *gin.Context) {
+	if h.templates == nil {
+		c.String(http.StatusInternalServerError, "Templates not loaded")
+		return
+	}
+
+	data := gin.H{
+		"Title": "Go To Hello World",
+	}
+
+	var buf bytes.Buffer
+	err := h.templates.ExecuteTemplate(&buf, "go_to_hello_world", data)
+	if err != nil {
+		log.Printf("Error rendering go_to_hello_world template: %v", err)
+		c.String(http.StatusInternalServerError, "Error rendering template: %v", err)
+		return
+	}
+
+	c.Data(http.StatusOK, "text/html; charset=utf-8", buf.Bytes())
 }
